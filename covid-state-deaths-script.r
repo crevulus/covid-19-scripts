@@ -1,29 +1,50 @@
 library(readr)
-library(deplyr)
+library(dplyr)
 library(purrr)
-library(viridis)
 library(usmap)
+library(ggplot2)
 
-data <- read.csv("./us-states.csv/")
-pop_data <- read.csv("./nst-est2019-alldata.csv/")
+data <- read.csv("us-states.csv")
+pop_data <- read.csv("nst-est2019-alldata.csv")
+
+filtered_pop_data <- select(pop_data,
+  STATE, NAME, POPESTIMATE2019)%>%
+  filter(
+    STATE != 0
+  )
+
+head(filtered_pop_data)
 
 # Show case:death ratio by state
 death_ratio_state_data <- data%>%
   group_by(state)%>%
   summarize(
-    sum_cases=sum(cases),
-    sum_deaths=sum(deaths)
+    cum_cases=max(cases),
+    cum_deaths=max(deaths)
   )
 
 death_ratio_state_plot <- ggplot(data=death_ratio_state_data,
-  aes(x=sum_cases, y=sum_deaths, color=state)) +
+  aes(x=cum_cases, y=cum_deaths, color=state)) +
   geom_point() +
   # Only show label if over 1m cases; position label
-  geom_text(aes(label=ifelse(sum_cases>10000000,as.character(state),'')),hjust=0.5,vjust=1) +
+  geom_text(aes(label=ifelse(cum_cases>100000,as.character(state),'')),hjust=0.5,vjust=1) +
   theme(legend.position = "none") +
   # Set axes to show standard numbers, not formulaic numbers; Set axes limits
-  scale_y_continuous(name="Cases", labels = scales::comma, expand = c(0, 0), limits = c(0, 3000000)) +
-  scale_x_continuous(name="Deaths", labels = scales::comma, expand = c(0, 0), limits = c(0, 40000000))
+  scale_y_continuous(name="Deaths", labels = scales::comma, expand = c(0, 0), limits = c(0, 40000)) +
+  scale_x_continuous(name="Cases", labels = scales::comma, expand = c(0, 0), limits = c(0, 500000))
+
+joined_table <- left_join(death_ratio_state_data, filtered_pop_data, by=c("state" = "NAME"), copy=TRUE)
+
+death_ratio_state_pop_data <- joined_table%>%
+  mutate(
+    cases_percent = (cum_cases/POPESTIMATE2019)*100,
+    deaths_percent = (cum_deaths/POPESTIMATE2019)*100,
+  )
+
+death_ratio_state_pop_plot <- ggplot(death_ratio_state_pop_data,
+  aes(x=cases_percent, y=deaths_percent)) +
+  geom_point() +
+  geom_text(aes(label=ifelse((cases_percent>1.5|deaths_percent>0.05),as.character(state),'')),hjust=0.5,vjust=1)
 
 # Isolate cluster
 # Isolate timespan
@@ -39,13 +60,13 @@ deaths_per_day_data <- data%>%
   )%>%
   group_by(day_of_the_week)%>%
   summarize(
-    sum_cases=sum(cases),
-    sum_deaths=sum(deaths)
+    cum_cases=max(cases),
+    cum_deaths=max(deaths)
   )
 
 # Bar
 deaths_per_day_bar <- ggplot(data=deaths_per_day_data,
-  aes(x=day_of_the_week, y=sum_deaths)) +
+  aes(x=day_of_the_week, y=cum_deaths)) +
   geom_bar(stat="identity") +
   scale_y_continuous(name="Cases", labels = scales::comma, expand = c(0, 0), limits = c(0, NA))
 
@@ -54,7 +75,7 @@ deaths_per_day_bar
 # Line
 death_rate_data <- deaths_per_day_data%>%
   mutate(
-    deaths_cases_percent = sum_deaths/sum_cases * 100
+    deaths_cases_percent = cum_deaths/cum_cases * 100
   )
 
 death_rate_line <- ggplot(data=death_rate_data,
@@ -65,11 +86,11 @@ death_rate_line
 
 # Combined
 combined_chart <- ggplot(death_rate_data, aes(x=day_of_the_week)) +
-  geom_bar(aes(y=sum_deaths), color = "darkblue", fill = "lightblue", stat="identity") +
+  geom_bar(aes(y=cum_deaths), color = "darkblue", fill = "lightblue", stat="identity") +
   # multiply by 200k to bring up to same scale
-  geom_line(aes(y=200000*deaths_cases_percent), size = 1.5, color="red", group=1) +
+  geom_line(aes(y=2000*deaths_cases_percent), size = 1.5, color="red", group=1) +
   # divide secondary y axis by 200k to be accurate with line data
-  scale_y_continuous(sec.axis = sec_axis(~./200000, name="Deaths per 100 Cases"), expand = c(0, 0), limits = c(0, NA))
+  scale_y_continuous(sec.axis = sec_axis(~./2000, name="Deaths per 100 Cases"), expand = c(0, 0), limits = c(0, NA))
 
 
 
@@ -78,17 +99,18 @@ combined_chart <- ggplot(death_rate_data, aes(x=day_of_the_week)) +
 cases_fips_data <- data%>%
   group_by(fips)%>%
   summarize(
-    sum_cases=sum(cases),
-    sum_deaths=sum(deaths)
+    cum_cases=max(cases),
+    cum_deaths=max(deaths)
   )
 
 state_map <- us_map(regions = "states")
 
-cases_map <- plot_usmap("states", data = cases_fips_data, value="sum_cases") +
+cases_map <- plot_usmap("states", data = cases_fips_data, value="cum_cases") +
   scale_fill_continuous(name="Cases by State", low = "#FDEDEC", high = "red", guide = FALSE) +
   theme(legend.position = "right")
 
 
 death_ratio_state_plot
+death_ratio_state_pop_plot
 cases_map
 combined_chart
