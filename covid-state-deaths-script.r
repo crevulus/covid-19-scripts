@@ -4,7 +4,8 @@ library(purrr)
 library(viridis)
 library(usmap)
 
-data <- read.csv("us-states.csv")
+data <- read.csv("./us-states.csv/")
+pop_data <- read.csv("./nst-est2019-alldata.csv/")
 
 # Show case:death ratio by state
 death_ratio_state_data <- data%>%
