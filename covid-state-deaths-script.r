@@ -115,9 +115,6 @@ cases_fips_data <- data%>%
     cum_deaths=max(deaths)
   )
 
-cases_fips_joined <- joined_table%>%
-  group_by(fips)
-
 state_map <- us_map(regions = "states")
 
 cases_map <- plot_usmap("states", data = cases_fips_data, value="cum_cases") +
@@ -137,16 +134,24 @@ joined_fips_data <- joined_fips_table%>%
 
 joined_fips_data <- joined_fips_data%>%
   mutate(
-    cases_percent=cum_cases/population*100
+    cases_percent=cum_cases/population*100,
+    deaths_percent=cum_deaths/population*100
   )
 
 pop_cases_map <- plot_usmap("states", data = joined_fips_data, value="cases_percent") +
   scale_fill_continuous(name="Cases by State", low = "#FDEDEC", high = "red", guide = FALSE) +
   labs(title="Map of Cases by Population")
 
+pop_deaths_map <- plot_usmap("states", data = joined_fips_data, value="deaths_percent") +
+  scale_fill_continuous(name="Cases by State", low = "#FDEDEC", high = "red", guide = FALSE) +
+  labs(title="Map of Deaths by Population")
+
+
+
 death_ratio_state_plot
-death_cases_ratio_state_plot
 cases_map
 death_ratio_state_pop_plot
+pop_deaths_map
+death_cases_ratio_state_plot
 pop_cases_map
 combined_chart
